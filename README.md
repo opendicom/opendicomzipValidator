@@ -63,7 +63,7 @@ WORK IN PROGRESS
       file name length                2 bytes
       extra field length              2 bytes  =0
 
-      file name                      36 bytes
+      file name (variable size)
 
 **4.3.8**  File data
 
@@ -98,7 +98,7 @@ WORK IN PROGRESS
         internal file attributes        2 bytes
         external file attributes        4 bytes
         relative offset of local header 4 bytes
-        file name                      36 bytes
+        file name (variable size)
 
         
 **4.3.16**  End of central directory record
