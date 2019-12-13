@@ -40,6 +40,11 @@ int main(int argc, const char * argv[]) {
       LOG_INFO(@"path   : %@", path);
       unsigned long length=data.length;
       LOG_INFO(@"length : %lu", length);
+      if (length<22)
+      {
+         LOG_ERROR(@"no end");
+         return 0;
+      }
       
 #pragma mark end
       uint32 endOffset=(uint32)length-22;
@@ -60,15 +65,19 @@ int main(int argc, const char * argv[]) {
 
       if (End->tag==0x06054b50) LOG_DEBUG(@"end tag OK");
       else LOG_ERROR(@"end tag: %04x",End->tag);
-      LOG_INFO(@"entries: %d\r\n======================",End->totalEntries);
-      
- 
-      if (End->centralSize != (82 * End->totalEntries))
+
+      if (   (End->centralPointer < 0)
+          || (End->centralPointer + End->centralSize > length)
+          || (End->centralSize < (46 * End->totalEntries))
+          )
       {
-         LOG_ERROR(@"central size %d should be 82 * %d",End->centralSize,End->totalEntries);
+         LOG_ERROR(@"central(%d,%d) %d entries",End->centralPointer, End->centralSize, End->totalEntries);
          return 0;
       }
+      LOG_INFO(@"central(%d,%d) %d entries\r\n======================",End->centralPointer, End->centralSize, End->totalEntries);
+           
       
+
 #pragma mark - central loop
       
       struct central
