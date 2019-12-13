@@ -60,11 +60,11 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "INFO"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "VERBOSE"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "DEBUG"

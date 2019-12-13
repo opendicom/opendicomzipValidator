@@ -39,17 +39,17 @@ WORK IN PROGRESS
       .
       [local file header n]
       [file data n]
+      
       [central directory header 1]
       .
       .
       .
       [central directory header n]
-      [zip64 end of central directory record]
-      [zip64 end of central directory locator] 
+      
       [end of central directory record]
 
 
-**4.3.7**  Local file header
+**4.3.7**  Local file header (30 bytes + name length)
 
       local file header signature     4 bytes  (0x04034b50)
       version needed to extract       2 bytes
@@ -79,7 +79,7 @@ WORK IN PROGRESS
       . 
       [central directory header n]
 
-      File header:
+      46 bytes + name length:
 
         central file header signature   4 bytes  (0x02014b50)
         version made by                 2 bytes
@@ -101,7 +101,7 @@ WORK IN PROGRESS
         file name (variable size)
 
         
-**4.3.16**  End of central directory record
+**4.3.16**  End of central directory record (fixed length 22 bytes)
 
       end of central dir signature    4 bytes  (0x06054b50)
       number of this disk             2 bytes  =0

@@ -3,7 +3,6 @@
 int main(int argc, const char * argv[]) {
    @autoreleasepool {
       
-      LOG_INFO(@"%d",(uint32)[[[@"0000001424.4224027299.0000526048.dcm" stringByDeletingPathExtension]pathExtension]intValue]);
       NSArray *args=[[NSProcessInfo processInfo] arguments];
 
       NSFileManager *fileManager=[NSFileManager defaultManager];
@@ -38,14 +37,15 @@ int main(int argc, const char * argv[]) {
           NSLog(@"can not read zip file %@",path);
           return 0;
       }
-      LOG_INFO(@"path: %@", path);
+      LOG_INFO(@"path   : %@", path);
       unsigned long length=data.length;
-      LOG_INFO(@"length: %lu", length);
+      LOG_INFO(@"length : %lu", length);
       
-#pragma mark epilog
-      NSData *epilogData=[data subdataWithRange:NSMakeRange(length-22,22)];
-      //NSLog(@"%@",[epilog description]);
-      struct epilog
+#pragma mark end
+      uint32 endOffset=(uint32)length-22;
+      NSData *endData=[data subdataWithRange:NSMakeRange(endOffset,22)];
+      LOG_DEBUG(@"end metadata (%d,22) %@",endOffset,[endData description]);
+      struct end
       {
          uint32 tag;
          uint16 diskNumber;
@@ -56,13 +56,20 @@ int main(int argc, const char * argv[]) {
          uint32 centralPointer;
          uint16 extraLength;
       } __attribute__((packed));
-      const struct epilog* Epilog=(const struct epilog*)[epilogData bytes];
+      const struct end* End=(const struct end*)[endData bytes];
 
-      if (Epilog->tag==0x06054b50) LOG_DEBUG(@"Epilog tag OK");
-      else LOG_ERROR(@"Epilog tag: %04x",Epilog->tag);
-      LOG_INFO(@"entries: %d\r\n==========",Epilog->totalEntries);
+      if (End->tag==0x06054b50) LOG_DEBUG(@"end tag OK");
+      else LOG_ERROR(@"end tag: %04x",End->tag);
+      LOG_INFO(@"entries: %d\r\n======================",End->totalEntries);
       
-#pragma mark central
+ 
+      if (End->centralSize != (82 * End->totalEntries))
+      {
+         LOG_ERROR(@"central size %d should be 82 * %d",End->centralSize,End->totalEntries);
+         return 0;
+      }
+      
+#pragma mark - central loop
       
       struct central
       {
@@ -83,21 +90,20 @@ int main(int argc, const char * argv[]) {
          uint16 internalFileAttribute;
          uint32 externalFileAttribute;
          uint32 localPointer;
-         char  name[36];
+         char  name[];
       } __attribute__((packed));
- 
-      if (Epilog->centralSize != (82 * Epilog->totalEntries))
-      {
-         LOG_ERROR(@"central size %d should be 82 * %d",Epilog->centralSize,Epilog->totalEntries);
-         return 0;
-      }
       
-      for (int i = 0; i < Epilog->totalEntries; i++)
+      uint32 nextCentralOffset=End->centralPointer;
+      uint16 nextNameLength=0;
+      [data getBytes:&nextNameLength range:NSMakeRange(nextCentralOffset+28,2)];
+
+      
+      for (int i = 0; i < End->totalEntries; i++)
       {
-         LOG_DEBUG(@"%d ---------",i);
-         NSRange centralMetaDataRange=NSMakeRange(Epilog->centralPointer + (i *       82),82);
+         LOG_DEBUG(@"------------------");
+         NSRange centralMetaDataRange=NSMakeRange(nextCentralOffset,46+nextNameLength);
          NSData *centralMetaData=[data subdataWithRange:centralMetaDataRange];
-         LOG_DEBUG(@"central metadata offset:%lu length:%lu %@",(unsigned long)centralMetaDataRange.location,(unsigned long)centralMetaDataRange.length,[centralMetaData description]);
+         LOG_DEBUG(@"%d central(%lu,%lu) %@",i,(unsigned long)centralMetaDataRange.location,(unsigned long)centralMetaDataRange.length,[centralMetaData description]);
 
          const struct central* Central=(const struct central*)[centralMetaData bytes];
          
@@ -119,18 +125,18 @@ int main(int argc, const char * argv[]) {
             uint32 uncompressedSize;
             uint16 nameLength;
             uint16 extraLength;
-            char  name[36];
+            char  name[];
          } __attribute__((packed));
 
-         NSRange localMetaDataRange=NSMakeRange(Central->localPointer,66);
+         NSRange localMetaDataRange=NSMakeRange(Central->localPointer,30 + nextNameLength);
          NSData *localMetaData=[data subdataWithRange:localMetaDataRange];
-         LOG_DEBUG(@"local metadata offset:%lu length:%lu %@",(unsigned long)localMetaDataRange.location,(unsigned long)localMetaDataRange.length,[localMetaData description]);
+         LOG_DEBUG(@"%d local(%lu,%lu) %@",i,(unsigned long)localMetaDataRange.location,(unsigned long)localMetaDataRange.length,[localMetaData description]);
 
          const struct local* Local=(const struct local*)[localMetaData bytes];
          
-         if (Local->tag!=0x04034b50) LOG_ERROR(@"Central tag should be 0x04034b50");
+         if (Local->tag!=0x04034b50) LOG_ERROR(@"local tag should be 0x04034b50");
 
-         LOG_VERBOSE(@"local info for item %d\r\n       version          %d\r\n       flag             %d\r\n       compressionCode  %d\r\n       time             %d\r\n       date             %d\r\n       CRC32            %d\r\n       compressedSize   %d\r\n       uncompressedSize %d\r\n       nameLength       %d\r\n       extraLength      %d\r\n       name             %s",
+         LOG_VERBOSE(@"%d\r\n   version          %d\r\n   flag             %d\r\n   compressionCode  %d\r\n   time             %d\r\n   date             %d\r\n   CRC32            %d\r\n   compressedSize   %d\r\n   uncompressedSize %d\r\n   nameLength       %d\r\n   extraLength      %d",
                      i,
                      Local->version,
                      Local->flag,
@@ -141,42 +147,39 @@ int main(int argc, const char * argv[]) {
                      Local->compressedSize,
                      Local->uncompressedSize,
                      Local->nameLength,
-                     Local->extraLength,
-                     Local->name);
+                     Local->extraLength);
          
          if (Central->version != Local->version) LOG_WARNING(@"central version %d",Central->version);
          if (Central->flag != Local->flag) LOG_WARNING(@"central flag %d",Central->flag);
          if (Central->time != Local->time) LOG_WARNING(@"central time %d",Central->flag);
          if (Central->date != Local->date) LOG_WARNING(@"central date, %d",Central->date);
          if (Central->CRC32 != Local->CRC32) LOG_WARNING(@"central CRC32 %d",Central->CRC32);
-         
-         uint32 cc=Central->compressedSize;
-         uint32 lc=Local->compressedSize;
-         if (cc != lc) LOG_WARNING(@"central compressedSize %d",cc);
-         uint32 cu=Central->uncompressedSize;
-         uint32 lu=Local->uncompressedSize;
-         if (cu != lu) LOG_WARNING(@"central uncompressedSize %d",cu);
+         if (Central->compressedSize != Local->compressedSize) LOG_WARNING(@"central compressedSize %d",Central->compressedSize);
+         if (Central->uncompressedSize != Local->uncompressedSize) LOG_WARNING(@"central uncompressedSize %d",Central->uncompressedSize);
          
          if (Central->nameLength != Local->nameLength) LOG_WARNING(@"central nameLength %d",Central->nameLength);
          if (Central->extraLength != Local->extraLength) LOG_WARNING(@"central extraLength %d",Central->extraLength);
          
-         if(strncmp(Central->name, Local->name, sizeof(Central->name)) != 0) LOG_WARNING(@"central name '%s'",Central->name);
+         if(strncmp(Central->name, Local->name, nextNameLength) != 0) LOG_WARNING(@"central name '%s'",Central->name);
 
 
 
 #pragma mark file
-         UInt32 fileOffset=Central->localPointer+66;
-         LOG_DEBUG(@"file offset %d and size %d",fileOffset,Local->compressedSize);
+         UInt32 fileOffset=Central->localPointer + 30 + nextNameLength;
          NSRange fileRange=NSMakeRange(fileOffset,Local->compressedSize);
          uint32 nextLocalTag=0;
          [data getBytes:&nextLocalTag range:NSMakeRange(fileOffset + Local->compressedSize,4)];
-         if (Local->tag==0x04034b50) LOG_INFO(@"%d  file(%d,%d)",i,fileOffset,Local->compressedSize);
-         else LOG_ERROR(@"%d bad file size. Next tag should start at %d",i,Central->localPointer + 66 + Local->compressedSize);
+         LOG_INFO(@"%d file(%d,%d)%s",i,fileOffset,Local->compressedSize,Local->name);
+         if (Local->tag!=0x04034b50) LOG_ERROR(@"%d bad file size. Next tag should start at %d",i, fileOffset + Local->compressedSize);
 
+#pragma mark next
+         nextCentralOffset=(uint32)(centralMetaDataRange.location + centralMetaDataRange.length);
+         if (nextCentralOffset < endOffset) [data getBytes:&nextNameLength range:NSMakeRange(nextCentralOffset+28,2)];
       }
+#pragma mark - epilog
 
 
    }
-   LOG_INFO(@"===========\r\n    END PARSING");
+   LOG_INFO(@"======================\r\n    END PARSING");
    return 0;
 }

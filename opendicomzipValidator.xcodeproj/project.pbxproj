@@ -29,6 +29,7 @@
 		4A2E7DB123A1A22C00F28B89 /* ODLog.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ODLog.m; sourceTree = "<group>"; };
 		4A2E7DB223A1A22C00F28B89 /* ODLog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ODLog.h; sourceTree = "<group>"; };
 		4A86F64723A2A1F0006BCB5B /* dcm.zip */ = {isa = PBXFileReference; lastKnownFileType = archive.zip; name = dcm.zip; path = test/dcm.zip; sourceTree = "<group>"; };
+		4A86F64823A2EF64006BCB5B /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +46,7 @@
 		4A2E7D9E23A11D8A00F28B89 = {
 			isa = PBXGroup;
 			children = (
+				4A86F64823A2EF64006BCB5B /* README.md */,
 				4A86F64623A2A1C7006BCB5B /* test */,
 				4A2E7DA923A11D8A00F28B89 /* zipParser */,
 				4A2E7DA823A11D8A00F28B89 /* Products */,
